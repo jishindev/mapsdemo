@@ -20,7 +20,6 @@
         android:layout_height="?actionBarSize"
         android:elevation="8dp"
         android:layout_gravity="bottom"
-        android:backgroundTint="?colorPrimary"
         app:fabCradleMargin="8dp"
         app:fabCradleRoundedCornerRadius="48dp" />
 

@@ -13,7 +13,6 @@ object PreferenceHelper {
     const val LOCATION = "location"
 
 
-
     fun prefs(context: Context, name: String = ""): SharedPreferences =
         context.getSharedPreferences(name, Context.MODE_PRIVATE)
 
@@ -24,7 +23,7 @@ object PreferenceHelper {
     }
 
 
-     operator fun SharedPreferences.set(key: String, value: Any?) {
+    operator fun SharedPreferences.set(key: String, value: Any?) {
         when (value) {
             is String? -> edit { it.putString(key, value) }
             is Int -> edit { it.putInt(key, value) }
@@ -35,7 +34,7 @@ object PreferenceHelper {
         }
     }
 
-     inline operator fun <reified T : Any> SharedPreferences.get(key: String, defaultValue: T? = null): T? {
+    inline operator fun <reified T : Any> SharedPreferences.get(key: String, defaultValue: T? = null): T? {
 
         return when (T::class) {
             String::class -> getString(key, defaultValue as? String ?: "") as T?
@@ -57,11 +56,7 @@ var SharedPreferences.isRequestingLocationUpdates: Boolean
 var SharedPreferences.location: LatLng?
     get() {
         val locString: String? = this[PreferenceHelper.LOCATION]
-        if (!locString.isNullOrEmpty() && locString.contains(",")) {
-            val latLngArray = locString.split(",").map { it.toDouble() }
-            return LatLng(latLngArray[0], latLngArray[1])
-        }
-        return null
+        return locString?.toLatLng()
     }
     set(value) {
         if (value != null)

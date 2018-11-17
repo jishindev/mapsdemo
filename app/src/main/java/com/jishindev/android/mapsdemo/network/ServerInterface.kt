@@ -12,12 +12,14 @@ import retrofit2.http.GET
 import java.util.concurrent.TimeUnit
 
 interface ServerInterface {
-    @GET("/explore")
+
+
+    @GET("b/5beffb2c5e84ba3878d09f64")/*/explore*/
     fun getLocation(): Deferred<Response<LatLngResponse>>
 
 
     companion object {
-        private const val BASE_URL = "http://localhost:8080"
+        private const val BASE_URL = /*"http://localhost:8080"*/"https://api.jsonbin.io/"
 
         fun getApi(): ServerInterface {
 
