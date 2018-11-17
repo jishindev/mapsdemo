@@ -2,11 +2,16 @@ package com.jishindev.android.mapsdemo.utils
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.google.android.gms.maps.model.LatLng
+import com.jishindev.android.mapsdemo.utils.PreferenceHelper.get
+import com.jishindev.android.mapsdemo.utils.PreferenceHelper.set
 
 
 object PreferenceHelper {
 
-    var IS_REQUESTING_LOCATION_UPDATES = "is_requesting_location_updates"
+    const val IS_REQUESTING_LOCATION_UPDATES = "is_requesting_location_updates"
+    const val LOCATION = "location"
+
 
 
     fun prefs(context: Context, name: String = ""): SharedPreferences =
@@ -19,7 +24,7 @@ object PreferenceHelper {
     }
 
 
-    operator fun SharedPreferences.set(key: String, value: Any?) {
+     operator fun SharedPreferences.set(key: String, value: Any?) {
         when (value) {
             is String? -> edit { it.putString(key, value) }
             is Int -> edit { it.putInt(key, value) }
@@ -30,7 +35,7 @@ object PreferenceHelper {
         }
     }
 
-    inline operator fun <reified T : Any> SharedPreferences.get(key: String, defaultValue: T? = null): T? {
+     inline operator fun <reified T : Any> SharedPreferences.get(key: String, defaultValue: T? = null): T? {
 
         return when (T::class) {
             String::class -> getString(key, defaultValue as? String ?: "") as T?
@@ -41,6 +46,24 @@ object PreferenceHelper {
             else -> throw UnsupportedOperationException("Not yet implemented")
         }
     }
-
-
 }
+
+var SharedPreferences.isRequestingLocationUpdates: Boolean
+    get() = this[PreferenceHelper.IS_REQUESTING_LOCATION_UPDATES] ?: false
+    set(value) {
+        this[PreferenceHelper.IS_REQUESTING_LOCATION_UPDATES] = value
+    }
+
+var SharedPreferences.location: LatLng?
+    get() {
+        val locString: String? = this[PreferenceHelper.LOCATION]
+        if (!locString.isNullOrEmpty() && locString.contains(",")) {
+            val latLngArray = locString.split(",").map { it.toDouble() }
+            return LatLng(latLngArray[0], latLngArray[1])
+        }
+        return null
+    }
+    set(value) {
+        if (value != null)
+            this[PreferenceHelper.LOCATION] = "${value.latitude},${value.longitude}"
+    }

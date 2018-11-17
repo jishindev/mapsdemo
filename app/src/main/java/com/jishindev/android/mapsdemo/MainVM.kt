@@ -1,41 +1,53 @@
 package com.jishindev.android.mapsdemo
 
+import android.content.SharedPreferences
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import com.jishindev.android.mapsdemo.models.LocationModel
-import com.jishindev.android.mapsdemo.network.ServerInterface
-import kotlinx.coroutines.*
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.google.android.gms.maps.model.LatLng
+import com.jishindev.android.mapsdemo.network.LatLngFetchWorker
+import com.jishindev.android.mapsdemo.utils.PreferenceHelper
+import com.jishindev.android.mapsdemo.utils.location
 import timber.log.Timber
+import java.util.*
+import java.util.concurrent.TimeUnit
 
-class MainVM : ViewModel() {
-
+class MainVM : ViewModel(), SharedPreferences.OnSharedPreferenceChangeListener {
 
     // todo inject this
-    private val api = ServerInterface.getApi()
+    private lateinit var workManager: WorkManager
 
-    var ldLocation = MutableLiveData<LocationModel>()
-    private var job: Job? = null
+    private lateinit var latLngFetchWorkId: UUID
+    val ldLocation = MutableLiveData<LatLng>()
 
-
-    fun loadLocation() {
-        Timber.i("loadLocation() called")
-
-        job?.cancel()
-        job = GlobalScope.launch {
-            val location = async(Dispatchers.Default) {
-                api.getLocation().await()
-            }.await().body()
-
-            if (location != null)
-                ldLocation.postValue(location)
-        }
-
+    init {
+        // todo remove after injection
+        workManager = WorkManager.getInstance()
     }
 
 
-    override fun onCleared() {
-        super.onCleared()
-        Timber.i("onCleared() called")
-        job?.cancel()
+    fun startLocationFetching(){
+        Timber.i("loadLocation() called")
+        val work = PeriodicWorkRequestBuilder<LatLngFetchWorker>(15, TimeUnit.SECONDS).build()
+        latLngFetchWorkId = work.id
+        workManager.enqueue(work)
+    }
+
+    fun stopLocationFetching() {
+        if (::latLngFetchWorkId.isInitialized) {
+            workManager.cancelWorkById(latLngFetchWorkId)
+        }
+    }
+
+    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
+        Timber.i("onSharedPreferenceChanged, sharedPreferences: $sharedPreferences, key: $key")
+
+        when (key) {
+            PreferenceHelper.LOCATION -> {
+                ldLocation.postValue(sharedPreferences?.location)
+            }
+        }
     }
 }
