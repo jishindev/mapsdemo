@@ -22,10 +22,7 @@ import com.google.android.gms.maps.SupportMapFragment
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
-import com.jishindev.android.mapsdemo.utils.checkAndDisplayLocationSettings
-import com.jishindev.android.mapsdemo.utils.getBitmapFromVector
-import com.jishindev.android.mapsdemo.utils.isRequestingLocationUpdates
-import com.jishindev.android.mapsdemo.utils.toLatLng
+import com.jishindev.android.mapsdemo.utils.*
 import kotlinx.android.synthetic.main.activity_main.*
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -62,21 +59,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment
         mapFragment.getMapAsync(this)
 
-        mainVm.setLifeCycleOwner(this)
-
         fabStartStop?.setOnClickListener { toggleLocationFetch() }
 
-        if(sharedPref.isRequestingLocationUpdates){
+        // observe for the latLng fetch that happens every 15 seconds
+        mainVm.ldLocation.observe(this, Observer {
+            Timber.i("onCreate mainVm.ldLocation : $it")
+            onNewLatLng(it)
+        })
+
+        if (sharedPref.isRequestingLocationUpdates) {
             mainVm.startLocationFetching()
             fabStartStop.setImageResource(R.drawable.ic_stop_white_24dp)
         }
 
         loadLastKnownLocation()
-
-        // observe for the latLng fetch that happens every 15 seconds
-        mainVm.ldLocation.observe(this, Observer {
-            onNewLatLng(it)
-        })
     }
 
     override fun onStart() {
@@ -151,7 +147,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             marker?.position = latLng
         }
 
-        val cameraUpdate = CameraUpdateFactory.newLatLngZoom(latLng, 13f)
+        val cameraUpdate = CameraUpdateFactory.newLatLngZoom(latLng, 10f)
         googleMap.animateCamera(cameraUpdate)
     }
 
@@ -182,7 +178,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
 
 
-            val cameraUpdate = CameraUpdateFactory.newLatLngZoom(location.toLatLng(), 13f)
+            val cameraUpdate = CameraUpdateFactory.newLatLngZoom(location.toLatLng(), 10f)
             googleMap.animateCamera(cameraUpdate)
         }
     }

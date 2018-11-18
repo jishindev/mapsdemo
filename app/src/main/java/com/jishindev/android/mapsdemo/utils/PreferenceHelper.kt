@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import com.google.android.gms.maps.model.LatLng
 import com.jishindev.android.mapsdemo.utils.PreferenceHelper.get
 import com.jishindev.android.mapsdemo.utils.PreferenceHelper.set
+import timber.log.Timber
 
 
 object PreferenceHelper {
@@ -59,6 +60,6 @@ var SharedPreferences.location: LatLng?
         return locString?.toLatLng()
     }
     set(value) {
-        if (value != null)
-            this[PreferenceHelper.LOCATION] = "${value.latitude},${value.longitude}"
+        //Timber.i("SharedPreferences.location set called with value: $value")
+        this[PreferenceHelper.LOCATION] = if (value != null) "${value.latitude},${value.longitude}" else ""
     }

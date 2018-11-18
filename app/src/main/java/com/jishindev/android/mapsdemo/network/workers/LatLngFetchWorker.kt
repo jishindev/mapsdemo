@@ -2,14 +2,13 @@ package com.jishindev.android.mapsdemo.network.workers
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.concurrent.futures.ResolvableFuture
 import androidx.work.Data
 import androidx.work.ListenableWorker
+import androidx.work.Worker
 import androidx.work.WorkerParameters
-import com.google.common.util.concurrent.ListenableFuture
+import com.jishindev.android.mapsdemo.models.LatLngResponse
 import com.jishindev.android.mapsdemo.network.ServerInterface
 import com.jishindev.android.mapsdemo.utils.location
-import kotlinx.coroutines.*
 import org.koin.standalone.KoinComponent
 import org.koin.standalone.inject
 import timber.log.Timber
@@ -17,47 +16,43 @@ import timber.log.Timber
 
 class LatLngFetchWorker(
     context: Context, params: WorkerParameters
-) : ListenableWorker(context, params), KoinComponent {
+) : Worker(context, params), KoinComponent, SharedPreferences.OnSharedPreferenceChangeListener {
 
-    private var job: Job? = null
-    private val future: ResolvableFuture<Payload> = ResolvableFuture.create()
-
-    override fun startWork(): ListenableFuture<Payload> {
-        Timber.i("startWork() called")
-
-        val sharedPref: SharedPreferences by inject()
-        val api: ServerInterface by inject()
-
-        Timber.i("startWork() called")
-
-        job?.cancel()
-        job = GlobalScope.launch {
-            val response = async(Dispatchers.Default) {
-                api.getLocation().await()
-            }.await().body()
-
-            Timber.d("startWork: response is $response")
-
-            if (response != null)
-            sharedPref.location = response.toLatLng().also {
-                val outputData =
-                    Data.Builder().putString("latlng", "${response.latitude},${response.longitude}").build()
-
-                future.set(Payload(Result.SUCCESS, outputData))
-            }
-            else {
-                Timber.e("startWork: response is null")
-                future.set(Payload(Result.RETRY, Data.EMPTY))
-            }
-        }
-        return future
+    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
+        Timber.i("onSharedPreferenceChanged, sharedPreferences: $sharedPreferences, key: $key")
     }
 
+    private val sharedPref: SharedPreferences by inject()
+    private val api: ServerInterface by inject()
+
+    override fun doWork(): ListenableWorker.Result {
+        Timber.i("startWork() called")
+
+        sharedPref.registerOnSharedPreferenceChangeListener(this)
+
+        val response: LatLngResponse? = null//api.getLocation().execute().body()
+        Timber.d("startWork: response is $response")
+
+        return if (response != null) {
+
+            sharedPref.location = response.toLatLng()
+
+            outputData = Data.Builder().putString(
+                "latlng",
+                "${response.latitude},${response.longitude}"
+            ).build()
+
+            Result.SUCCESS
+        } else {
+            Timber.e("startWork: response is null")
+            Result.FAILURE
+        }
+    }
 
     override fun onStopped() {
         super.onStopped()
-        job?.cancel()
-        future.set(Payload(Result.FAILURE, Data.EMPTY))
+        Timber.i("onStopped")
+        sharedPref.unregisterOnSharedPreferenceChangeListener(this)
     }
 }
 

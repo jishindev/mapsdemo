@@ -1,87 +1,88 @@
 package com.jishindev.android.mapsdemo
 
 import android.content.SharedPreferences
-import androidx.lifecycle.LifecycleOwner
+import android.os.Handler
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.google.android.gms.maps.model.LatLng
-import com.jishindev.android.mapsdemo.network.workers.LatLngFetchWorker
+import com.jishindev.android.mapsdemo.network.ServerInterface
 import com.jishindev.android.mapsdemo.utils.PreferenceHelper
 import com.jishindev.android.mapsdemo.utils.location
+import kotlinx.coroutines.*
 import timber.log.Timber
-import java.util.concurrent.TimeUnit
+import java.lang.Exception
 
 
-class MainVM(val workManager: WorkManager, val sharedPref: SharedPreferences) : ViewModel(),
-    SharedPreferences.OnSharedPreferenceChangeListener {
-
+class MainVM(
+   // val workManager: WorkManager, val sharedPref: SharedPreferences,
+    val api: ServerInterface
+) : ViewModel()/*,
+    SharedPreferences.OnSharedPreferenceChangeListener*/ {
 
     val ldLocation = MutableLiveData<LatLng>()
-    private lateinit var lifecycleOwner: LifecycleOwner
-    fun setLifeCycleOwner(lOwner: LifecycleOwner) {
-        lifecycleOwner = lOwner
+
+    private val handler = Handler()
+    private var job: Job? = null
+    private val fetchRunnable = object : Runnable {
+        override fun run() {
+            val fRunnable = this
+            job?.cancel()
+            job = GlobalScope.launch(Dispatchers.Main) {
+                try {
+                    val response = api.getLocation().await().body()
+                    Timber.d("fetchRunnable: response is $response")
+                    if (response != null) {
+                        ldLocation.postValue(response.toLatLng())
+                    }
+                }catch (e:Exception){}
+                handler.postDelayed(fRunnable, FETCH_INTERVAL)
+            }
+        }
     }
 
     fun startLocationFetching() {
         Timber.i("startLocationFetching() called")
 
-        sharedPref.registerOnSharedPreferenceChangeListener(this)
+        handler.post(fetchRunnable)
 
-        val work = PeriodicWorkRequestBuilder<LatLngFetchWorker>(15, TimeUnit.SECONDS).addTag(WORKER_TAG).build()
-        //latLngFetchWorkId = work.id
-        workManager.enqueue(work)
+        /*sharedPref.registerOnSharedPreferenceChangeListener(this)
 
 
-        if (::lifecycleOwner.isInitialized) {
-            workManager.getWorkInfosByTag(WORKER_TAG).addListener({
+        val work = PeriodicWorkRequestBuilder<LatLngFetchWorker>(15, TimeUnit.SECONDS)
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .build()
 
-               /* Timber.i("startLocationFetching: work: ${it.state}")
-                when (it?.state) {
-
-                    WorkInfo.State.SUCCEEDED -> {
-                        ldLocation.value = it.outputData.getString("latlng")?.toLatLng().also {
-                            Timber.d("startLocationFetching: latlng: $it")
-                        }
-                    }
-                    else -> {
-                        Timber.i("startLocationFetching: work: ${it.state}")
-                    }
-                }*/
-            }, {
-
-            })
-        } else {
-            throw IllegalStateException("Set a lifecycle owner to the VM")
-        }
+        workManager.enqueueUniquePeriodicWork("fetch", ExistingPeriodicWorkPolicy.REPLACE, work)*/
     }
 
     fun stopLocationFetching() {
         Timber.i("stopLocationFetching() called")
 
-        sharedPref.unregisterOnSharedPreferenceChangeListener(this)
-        workManager.cancelAllWorkByTag(WORKER_TAG)
+        job?.cancel()
+        handler.removeCallbacks(fetchRunnable)
+
+        /*sharedPref.unregisterOnSharedPreferenceChangeListener(this)
+        workManager.cancelAllWork()*/
     }
 
-    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
+/*    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences?, key: String?) {
         Timber.i("onSharedPreferenceChanged, sharedPreferences: $sharedPreferences, key: $key")
 
         when (key) {
             PreferenceHelper.LOCATION -> {
-                ldLocation.value = sharedPref.location
+                ldLocation.postValue(sharedPreferences?.location)
             }
         }
-    }
+    }*/
 
     override fun onCleared() {
         super.onCleared()
+        Timber.i("onCleared")
         stopLocationFetching()
     }
 
     companion object {
-
-        const val WORKER_TAG = "fetchWork"
+        const val FETCH_INTERVAL = 15_000L
     }
 }
